@@ -18,7 +18,7 @@ class getSiStripDiff:
             "rl_user_id": '""'
             }
         
-        self.baseUrl = "https://tkmaps.web.cern.ch/tkmaps/files/data/users/event_display/Data2025/Beam/"
+        self.baseUrl = "https://tkmaps.web.cern.ch/tkmaps/files/data/users/event_display/Data2024/Beam/"
         self.runDictionary = {}
         self.getOnlineDirectoryDictionary()
         self.diffImage()
@@ -38,6 +38,37 @@ class getSiStripDiff:
         diffImage = Image.fromarray(copyMBC)
         diffImage.save('diffImage.png')
         print("Image saved successfully as 'diffImage.png'")
+
+    def diffImage(self):
+        for run, subruns in self.runDictionary.items():
+            for fullrun in subruns:
+                print(f"Processing run {run}/{fullrun}...")
+
+                pathMBC = f"{self.baseUrl}{run}/{fullrun}/HLT/MergedBadComponentsTkMap.png"
+                pathNTC = f"{self.baseUrl}{run}/{fullrun}/StreamExpress/NumberOfOnTrackCluster.png"
+
+                try:
+                    plotMBC = self.requestImage(url=pathMBC)
+                    plotNTC = self.requestImage(url=pathNTC)
+                
+                except Exception as e:
+                    print(f"Error loading images for run {run}/{fullrun}: {e}")
+                    continue
+                
+                if plotMBC.shape != plotNTC.shape:
+                    print(f"Image size mismatch for run {run}/{fullrun} — skipping.\n"
+                          f"  MergedBadComponentsTkMap shape: {plotMBC.shape}\n"
+                          f"  NumberOfOnTrackCluster shape: {plotNTC.shape}")
+                    continue
+
+                whiteMask = np.all(plotMBC == [255, 255, 255], axis=-1)            
+                copyMBC = plotMBC.copy()
+                copyMBC[whiteMask] = plotNTC[whiteMask]
+                diffImage = Image.fromarray(copyMBC)
+                filename = f'diffImage_{run}_{fullrun}.png'
+                diffImage.save(filename)
+                print(f"Image saved successfully as '{filename}'")
+
 
 
     def requestImage(self, url):
@@ -64,18 +95,6 @@ class getSiStripDiff:
                 dirs.append(href.strip("/"))
         return dirs
 
-
-
-    def createDirectory(self, directory_name):
-        try:
-            os.mkdir(directory_name)
-            print(f"Directory '{directory_name}' created successfully.")
-        except FileExistsError:
-            print(f"Directory '{directory_name}' already exists.")
-        except PermissionError:
-            print(f"Permission denied: Unable to create '{directory_name}'.")
-        except Exception as e:
-            print(f"An error occurred: {e}")
 
 
 if __name__ == '__main__':
